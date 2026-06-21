@@ -1,0 +1,66 @@
+name: Build & Deploy Flutter Web
+
+# Construit l'application Flutter web et la publie sur GitHub Pages
+# à chaque push sur la branche main.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # permet aussi un lancement manuel depuis l'onglet Actions
+
+# Permissions nécessaires au déploiement GitHub Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Évite les déploiements concurrents ; n'annule pas un déploiement en cours.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build (analyse + tests + web)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.38.5
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      # base-href = nom du dépôt pour que les chemins soient corrects sur
+      # https://<utilisateur>.github.io/Trip/
+      - name: Build web
+        run: flutter build web --release --base-href "/Trip/"
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
